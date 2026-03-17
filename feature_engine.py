@@ -55,7 +55,7 @@ class FeatureEngine:
         Output: feature-enriched DataFrame ready for model training
         """
         df = df.copy()
-        df = df.sort_values(["stream_id", "timestamp"])
+        df = df.sort_values(["stream_id", "timestamp"]).reset_index(drop=True)
 
         feature_groups = [
             self._momentum_features,
@@ -65,8 +65,15 @@ class FeatureEngine:
             self._cross_stream_features,
         ]
 
+        # Process each stream independently and concatenate
+        # (avoids pandas version differences in groupby.apply behavior)
+        stream_ids = df["stream_id"].unique()
         for group_fn in feature_groups:
-            df = df.groupby("stream_id", group_keys=False).apply(group_fn)
+            processed = []
+            for sid in stream_ids:
+                group = df[df["stream_id"] == sid].copy()
+                processed.append(group_fn(group))
+            df = pd.concat(processed, ignore_index=True)
 
         df = self._add_temporal_features(df)
         df = self._add_interaction_features(df)

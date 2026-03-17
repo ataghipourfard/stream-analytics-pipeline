@@ -16,6 +16,7 @@ import pandas as pd
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.preprocessing import RobustScaler
+from typing import Optional
 import xgboost as xgb
 import warnings
 warnings.filterwarnings("ignore")
@@ -97,7 +98,8 @@ class XGBForecaster:
 
         print(f"  CV MAE: {np.mean(self.cv_scores):.1f} ± {np.std(self.cv_scores):.1f}")
 
-        # Final fit on all data
+        # Final fit on all data (disable early stopping — no eval set)
+        self.model.set_params(early_stopping_rounds=None)
         X_scaled = self.scaler.fit_transform(X)
         self.model.fit(X_scaled, y, verbose=False)
         return self
@@ -143,7 +145,7 @@ class SARIMAForecaster:
                 df[df["stream_id"] == sid]
                 .set_index("timestamp")["viewer_count"]
                 .asfreq("1min")
-                .fillna(method="ffill")
+                .ffill()
             )
             try:
                 model = SARIMAX(
